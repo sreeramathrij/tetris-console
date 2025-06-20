@@ -55,9 +55,9 @@ void drawCurrentPiece()
 
         if (gridY >= 0 && gridY < GRID_ROWS && gridX >= 0 && gridX < GRID_COLS)
         {
-          int x = originX + gridX * cellWidth;
-          int y = originY + gridY * cellHeight;
-          u8g2.drawBox(x, y, cellWidth, cellHeight);
+          int x = originX + gridX * cellWidth - 2;
+          int y = originY + gridY * cellHeight - 2;
+          u8g2.drawBox(x + 2, y + 2, cellWidth - 2, cellHeight - 2);
         }
       }
     }
@@ -90,17 +90,45 @@ void loop()
 {
   unsigned long currentTime = millis();
 
+  if (currentTime - lastFallTime > fallInterval)
+  {
+    if (canMove(currentPiece.x, currentPiece.y + 1, currentPiece.rotation))
+    {
+      currentPiece.y += 1;
+    }
+    else
+    {
+      lockPieceToGrid();
+      spawnNewPiece();
+    }
+    lastFallTime = currentTime;
+  }
+
   if (digitalRead(btnLeftPin) == LOW)
   {
-    Serial.println("Left button pressed");
+    if (canMove(currentPiece.x - 1, currentPiece.y, currentPiece.rotation))
+      currentPiece.x -= 1;
   }
-  if (digitalRead(btnRightPin) == LOW)
+  else if (digitalRead(btnRightPin) == LOW)
   {
-    Serial.println("Right button pressed");
+    if (canMove(currentPiece.x + 1, currentPiece.y, currentPiece.rotation))
+      currentPiece.x += 1;
   }
-  if (digitalRead(btnRotatePin) == LOW)
+  else if (digitalRead(btnRotatePin) == LOW)
   {
-    Serial.println("Rotate button pressed");
+    if (currentPiece.rotation == 3)
+    {
+      currentPiece.rotation = -1;
+    }
+    if (canMove(currentPiece.x, currentPiece.y, currentPiece.rotation + 1))
+      if (currentPiece.rotation == -1)
+        currentPiece.rotation = 3;
+      else
+        currentPiece.rotation += 1;
   }
-  delay(100); // debounce
+
+  u8g2.clearBuffer();
+  drawGrid();
+  drawCurrentPiece();
+  u8g2.sendBuffer();
 }
