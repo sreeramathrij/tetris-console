@@ -13,5 +13,7 @@ extern ActivePiece currentPiece;
 
 void spawnNewPiece();
 const int (*getCurrentShape())[4];
+bool canMove(int newX, int newY, int rotation);
+void lockPieceToGrid();
 
 #endif

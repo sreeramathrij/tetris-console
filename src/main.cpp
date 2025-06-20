@@ -1,35 +1,106 @@
 #include <Arduino.h>
 #include <U8g2lib.h>
 
-U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0);
+#include "piece.h"
+#include "grid.h"
 
-const int cellWidth = 5;
-const int cellHeight = 3;
-const int cols = 10;
-const int rows = 20;
+U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R1);
+
+const int cellWidth = 6;
+const int cellHeight = 6;
 const int originX = 4;
 const int originY = 2;
+
+const int btnLeftPin = 4;
+const int btnRightPin = 5;
+const int btnRotatePin = 14;
+
+unsigned long lastFallTime = 0;
+const int fallInterval = 500;
+
+void drawGrid()
+{
+  for (int row = 0; row < GRID_ROWS; row++)
+  {
+    for (int col = 0; col < GRID_COLS; col++)
+    {
+      if (getCell(row, col))
+      {
+        int x = originX + col * cellWidth;
+        int y = originY + row * cellHeight;
+        u8g2.drawBox(x, y, cellWidth, cellHeight);
+      }
+      else
+      {
+        int x = originX + col * cellWidth;
+        int y = originY + row * cellHeight;
+        u8g2.drawFrame(x, y, cellWidth, cellHeight);
+      }
+    }
+  }
+}
+
+void drawCurrentPiece()
+{
+  const int (*shape)[4] = getCurrentShape();
+
+  for (int row = 0; row < 4; row++)
+  {
+    for (int col = 0; col < 4; col++)
+    {
+      if (shape[row][col])
+      {
+        int gridX = currentPiece.x + col;
+        int gridY = currentPiece.y + row;
+
+        if (gridY >= 0 && gridY < GRID_ROWS && gridX >= 0 && gridX < GRID_COLS)
+        {
+          int x = originX + gridX * cellWidth;
+          int y = originY + gridY * cellHeight;
+          u8g2.drawBox(x, y, cellWidth, cellHeight);
+        }
+      }
+    }
+  }
+}
 
 void setup()
 {
   u8g2.begin();
+  delay(200);
+  Serial.begin(115200);
+
+  randomSeed(analogRead(A0));
+
+  for (int i = 0; i < 5; i++)
+  {
+    Serial.print("Random: ");
+    Serial.println(random(7)); // Expect varied output here
+  }
+
+  pinMode(btnLeftPin, INPUT); // external pull-up already present
+  pinMode(btnRightPin, INPUT);
+  pinMode(btnRotatePin, INPUT);
+
+  clearGrid();
+  spawnNewPiece();
 }
 
 void loop()
 {
-  u8g2.clearBuffer();
+  unsigned long currentTime = millis();
 
-  for (int row = 0; row < rows; row++)
+  if (digitalRead(btnLeftPin) == LOW)
   {
-    for (int col = 0; col < cols; col++)
-    {
-      int x = originX + col * cellWidth;
-      int y = originY + row * cellHeight;
-      u8g2.drawFrame(x, y, cellWidth, cellHeight);
-    }
+    Serial.println("Left button pressed");
   }
-  // u8g2.setFont(u8g2_font_5x7_mr);
-  // u8g2.drawStr(10, 30, "Hello Tetris!");
-  u8g2.sendBuffer();
-  delay(1000);
+  if (digitalRead(btnRightPin) == LOW)
+  {
+    Serial.println("Right button pressed");
+  }
+  if (digitalRead(btnRotatePin) == LOW)
+  {
+    Serial.println("Rotate button pressed");
+  }
+  delay(100); // debounce
 }
