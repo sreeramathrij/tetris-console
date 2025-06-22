@@ -15,6 +15,9 @@ const int btnLeftPin = 4;
 const int btnRightPin = 5;
 const int btnRotatePin = 14;
 
+unsigned long lastButtonPress = 0;
+const int buttonDelay = 100;
+
 unsigned long lastFallTime = 0;
 const int fallInterval = 500;
 
@@ -104,27 +107,33 @@ void loop()
     lastFallTime = currentTime;
   }
 
-  if (digitalRead(btnLeftPin) == LOW)
+  if (currentTime - lastButtonPress > buttonDelay)
   {
-    if (canMove(currentPiece.x - 1, currentPiece.y, currentPiece.rotation))
-      currentPiece.x -= 1;
-  }
-  else if (digitalRead(btnRightPin) == LOW)
-  {
-    if (canMove(currentPiece.x + 1, currentPiece.y, currentPiece.rotation))
-      currentPiece.x += 1;
-  }
-  else if (digitalRead(btnRotatePin) == LOW)
-  {
-    if (currentPiece.rotation == 3)
+    if (digitalRead(btnLeftPin) == LOW)
     {
-      currentPiece.rotation = -1;
+      if (canMove(currentPiece.x - 1, currentPiece.y, currentPiece.rotation))
+      {
+        currentPiece.x -= 1;
+        lastButtonPress = currentTime;
+      }
     }
-    if (canMove(currentPiece.x, currentPiece.y, currentPiece.rotation + 1))
-      if (currentPiece.rotation == -1)
-        currentPiece.rotation = 3;
-      else
-        currentPiece.rotation += 1;
+    else if (digitalRead(btnRightPin) == LOW)
+    {
+      if (canMove(currentPiece.x + 1, currentPiece.y, currentPiece.rotation))
+      {
+        currentPiece.x += 1;
+        lastButtonPress = currentTime;
+      }
+    }
+    else if (digitalRead(btnRotatePin) == LOW)
+    {
+      int newRotation = (currentPiece.rotation + 1) % 4;
+      if (canMove(currentPiece.x, currentPiece.y, newRotation))
+      {
+        currentPiece.rotation = newRotation;
+        lastButtonPress = currentTime;
+      }
+    }
   }
 
   u8g2.clearBuffer();

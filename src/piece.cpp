@@ -31,6 +31,9 @@ bool canMove(int newX, int newY, int rotation)
         int x = newX + col;
         int y = newY + row;
 
+        if (col == 2)
+          Serial.println(x, y);
+
         // Out of bounds?
         if (x < 0 || x >= GRID_COLS || y < 0 || y >= GRID_ROWS)
         {
