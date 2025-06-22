@@ -9,11 +9,16 @@ U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R1);
 const int cellWidth = 6;
 const int cellHeight = 6;
 const int originX = 4;
-const int originY = 2;
+const int originY = 12;
 
 const int btnLeftPin = 4;
 const int btnRightPin = 5;
 const int btnRotatePin = 14;
+
+int score = 0;
+int scoreFactor = 100;
+
+bool isGameOver = false;
 
 unsigned long lastButtonPress = 0;
 const int buttonDelay = 100;
@@ -67,6 +72,53 @@ void drawCurrentPiece()
   }
 }
 
+void animateRowClear(int row)
+{
+  for (int col = 0; col < GRID_COLS; col++)
+  {
+    setCell(row, col, 0);
+
+    u8g2.clearBuffer();
+    drawGrid();
+    drawCurrentPiece(); // optional, or skip if animation only
+    u8g2.sendBuffer();
+
+    delay(20); // adjust speed of animation
+  }
+}
+
+int clearFullRows()
+{
+  int rowsCleared = 0;
+
+  for (int row = GRID_ROWS - 1; row >= 0; row--)
+  {
+    if (isRowFull(row))
+    {
+      animateRowClear(row); // handle the animation on this row
+      rowsCleared++;
+
+      for (int y = row; y > 0; y--)
+      {
+        for (int x = 0; x < GRID_COLS; x++)
+        {
+          setCell(y, x, getCell(y - 1, x));
+        }
+      }
+
+      // Clear top row
+      for (int x = 0; x < GRID_COLS; x++)
+      {
+        setCell(0, x, 0);
+      }
+
+      row++; // recheck this row again
+    }
+  }
+
+  return rowsCleared;
+}
+
 void setup()
 {
   u8g2.begin();
@@ -93,51 +145,98 @@ void loop()
 {
   unsigned long currentTime = millis();
 
-  if (currentTime - lastFallTime > fallInterval)
+  if (!isGameOver)
   {
-    if (canMove(currentPiece.x, currentPiece.y + 1, currentPiece.rotation))
+    if (currentTime - lastFallTime > fallInterval)
     {
-      currentPiece.y += 1;
+      if (canMove(currentPiece.x, currentPiece.y + 1, currentPiece.rotation))
+      {
+        currentPiece.y += 1;
+      }
+      else
+      {
+        lockPieceToGrid();
+        int rowsCleared = clearFullRows();
+        score += rowsCleared * scoreFactor;
+        spawnNewPiece();
+        if (!canMove(currentPiece.x, currentPiece.y, currentPiece.rotation))
+        {
+          isGameOver = true;
+        }
+      }
+      lastFallTime = currentTime;
     }
-    else
-    {
-      lockPieceToGrid();
-      spawnNewPiece();
-    }
-    lastFallTime = currentTime;
-  }
 
-  if (currentTime - lastButtonPress > buttonDelay)
-  {
-    if (digitalRead(btnLeftPin) == LOW)
+    if (currentTime - lastButtonPress > buttonDelay)
     {
-      if (canMove(currentPiece.x - 1, currentPiece.y, currentPiece.rotation))
+      if (digitalRead(btnLeftPin) == LOW)
       {
-        currentPiece.x -= 1;
-        lastButtonPress = currentTime;
+        if (canMove(currentPiece.x - 1, currentPiece.y, currentPiece.rotation))
+        {
+          currentPiece.x -= 1;
+          lastButtonPress = currentTime;
+        }
       }
-    }
-    else if (digitalRead(btnRightPin) == LOW)
-    {
-      if (canMove(currentPiece.x + 1, currentPiece.y, currentPiece.rotation))
+      else if (digitalRead(btnRightPin) == LOW)
       {
-        currentPiece.x += 1;
-        lastButtonPress = currentTime;
+        if (canMove(currentPiece.x + 1, currentPiece.y, currentPiece.rotation))
+        {
+          currentPiece.x += 1;
+          lastButtonPress = currentTime;
+        }
       }
-    }
-    else if (digitalRead(btnRotatePin) == LOW)
-    {
-      int newRotation = (currentPiece.rotation + 1) % 4;
-      if (canMove(currentPiece.x, currentPiece.y, newRotation))
+      else if (digitalRead(btnRotatePin) == LOW)
       {
-        currentPiece.rotation = newRotation;
-        lastButtonPress = currentTime;
+        int newRotation = (currentPiece.rotation + 1) % 4;
+        if (canMove(currentPiece.x, currentPiece.y, newRotation))
+        {
+          currentPiece.rotation = newRotation;
+          lastButtonPress = currentTime;
+        }
       }
     }
   }
 
   u8g2.clearBuffer();
+
+  char buffer[20];
+  sprintf(buffer, "SCORE: %d", score);
+
+  u8g2.setFont(u8g2_font_5x7_tr);
+  u8g2.drawStr(2, 8, buffer);
+
   drawGrid();
+
+  if (isGameOver)
+  {
+    char bufferOver[10];
+    sprintf(bufferOver, "%d", score);
+
+    u8g2.setFont(u8g2_font_ncenB08_tr);
+    u8g2.clearBuffer();
+    u8g2.drawStr(15, 30, "GAME");
+    u8g2.drawStr(15, 40, "OVER");
+    u8g2.drawStr(10, 55, "SCORE: ");
+    u8g2.drawStr(20, 65, bufferOver);
+    u8g2.drawStr(12, 80, "PRESS");
+    u8g2.drawStr(10, 90, "ROTATE");
+    u8g2.drawStr(25, 100, "TO");
+    u8g2.drawStr(12, 110, "RESET");
+    u8g2.sendBuffer();
+
+    if (digitalRead(btnRotatePin) == LOW)
+    {
+      delay(200); // basic debounce
+      clearGrid();
+      isGameOver = false;
+      score = 0;
+      spawnNewPiece();
+    }
+
+    delay(100);
+    return; // skip the rest of the loop
+  }
+
   drawCurrentPiece();
   u8g2.sendBuffer();
 }

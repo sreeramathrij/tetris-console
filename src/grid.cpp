@@ -35,47 +35,10 @@ bool isRowFull(int row)
 {
   for (int col = 0; col < GRID_COLS; col++)
   {
-    if (grid[row][col] == 0)
+    if (!getCell(row, col))
       return false;
   }
   return true;
-}
-
-void clearFullRows()
-{
-  for (int row = GRID_ROWS - 1; row >= 0; row--)
-  {
-    bool isFull = true;
-    for (int col = 0; col < GRID_COLS; col++)
-    {
-      if (!getCell(row, col))
-      {
-        isFull = false;
-        break;
-      }
-    }
-
-    if (isFull)
-    {
-      // Shift all rows above down
-      for (int y = row; y > 0; y--)
-      {
-        for (int x = 0; x < GRID_COLS; x++)
-        {
-          setCell(y, x, getCell(y - 1, x));
-        }
-      }
-
-      // Clear the top row
-      for (int x = 0; x < GRID_COLS; x++)
-      {
-        setCell(0, x, 0);
-      }
-
-      // Re-check this row since it's now filled by above
-      row++;
-    }
-  }
 }
 
 void shiftRowsDown(int fromRow)
