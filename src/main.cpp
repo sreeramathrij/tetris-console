@@ -14,8 +14,9 @@ const int originY = 12;
 const int btnLeftPin = 4;
 const int btnRightPin = 5;
 const int btnRotatePin = 14;
-
+const int btnDropPin=27;
 int score = 0;
+int highScore=0;
 int scoreFactor = 100;
 
 bool isGameOver = false;
@@ -25,6 +26,16 @@ const int buttonDelay = 100;
 
 unsigned long lastFallTime = 0;
 const int fallInterval = 500;
+
+const char* menuItems[2][2] = {{ "START", "GAME" },
+{"HIGH" ,"SCORE"}};
+const int menuItemCount = sizeof(menuItems) / sizeof(menuItems[0]);
+int menuIndex = 0;
+
+enum GameState { MENU, GAME, GAME_OVER,HIGH_SCORE };
+GameState gameState = MENU;
+
+
 
 void drawGrid()
 {
@@ -136,16 +147,59 @@ void setup()
   pinMode(btnLeftPin, INPUT); // external pull-up already present
   pinMode(btnRightPin, INPUT);
   pinMode(btnRotatePin, INPUT);
+  pinMode(btnDropPin,INPUT);
 
   clearGrid();
   spawnNewPiece();
 }
 
 void loop()
-{
+{if (gameState == MENU) {
+  // handle input
+  if (digitalRead(btnLeftPin) == LOW) {
+    menuIndex = (menuIndex - 1 + menuItemCount) % menuItemCount;
+    delay(150);
+  }
+  if (digitalRead(btnRightPin) == LOW) {
+    menuIndex = (menuIndex + 1) % menuItemCount;
+    delay(150);
+  }
+
+  if (digitalRead(btnRotatePin) == LOW) {
+    if (menuIndex == 0) { // START GAME
+      clearGrid();
+      score = 0;
+      isGameOver = false;
+      spawnNewPiece();
+      gameState = GAME;
+    } else if (menuIndex == 1) { // HIGH SCORE
+      gameState = HIGH_SCORE;
+    }
+    delay(150);
+  }
+
+  // draw menu UI
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_6x10_tf);
+  u8g2.drawStr(15, 10, "TETRIS");
+
+  int lines=0;
+
+  for (int i = 0; i < menuItemCount; i++) {
+    if (i == menuIndex) u8g2.drawStr(10, 25 + i * 20 + 4, ">");
+    
+    for(int j=0;j<2;j++){
+    u8g2.drawStr(20, 25 + lines * 10 + 4 , menuItems[i][j]);
+    lines++;
+  }
+}
+
+  u8g2.sendBuffer();
+  return;
+}
   unsigned long currentTime = millis();
 
-  if (!isGameOver)
+  if (gameState==GAME)
   {
     if (currentTime - lastFallTime > fallInterval)
     {
@@ -161,7 +215,7 @@ void loop()
         spawnNewPiece();
         if (!canMove(currentPiece.x, currentPiece.y, currentPiece.rotation))
         {
-          isGameOver = true;
+          gameState = GAME_OVER;
         }
       }
       lastFallTime = currentTime;
@@ -196,6 +250,52 @@ void loop()
       }
     }
   }
+  
+
+  if (digitalRead(btnDropPin) == LOW && !isGameOver) {
+  // Drop piece to the lowest valid position
+  while (canMove(currentPiece.x, currentPiece.y + 1, currentPiece.rotation)) {
+    currentPiece.y += 1;
+  }
+
+  lockPieceToGrid();
+
+  int rowsCleared = clearFullRows();
+  score += rowsCleared * 100;
+
+  spawnNewPiece();
+
+  // Check if new piece causes game over
+  if (!canMove(currentPiece.x, currentPiece.y, currentPiece.rotation)) {
+    gameState = GAME_OVER;
+  }
+
+  delay(150); // basic debounce
+}
+        if (gameState == HIGH_SCORE) {
+      u8g2.clearBuffer();
+      u8g2.setFont(u8g2_font_6x10_tf);
+      u8g2.drawStr(15, 10, "HIGH");
+      u8g2.drawStr(15, 20, "SCORE");
+      
+      char buf[16];
+      sprintf(buf, "%d", highScore);
+      u8g2.drawStr(25, 40, buf);
+      
+     u8g2.drawStr(12, 80, "PRESS");
+    u8g2.drawStr(10, 90, "ROTATE");
+    u8g2.drawStr(25, 100, "TO");
+    u8g2.drawStr(12, 110, "EXIT");
+      u8g2.sendBuffer();
+
+      if (digitalRead(btnRotatePin) == LOW) {
+        delay(150); // debounce
+        gameState = MENU;
+      }
+      return;
+    }
+
+
 
   u8g2.clearBuffer();
 
@@ -207,8 +307,10 @@ void loop()
 
   drawGrid();
 
-  if (isGameOver)
-  {
+  if (gameState==GAME_OVER)
+  { if(highScore < score){
+    highScore = score;
+  }
     char bufferOver[10];
     sprintf(bufferOver, "%d", score);
 
@@ -228,7 +330,7 @@ void loop()
     {
       delay(200); // basic debounce
       clearGrid();
-      isGameOver = false;
+      gameState = MENU;
       score = 0;
       spawnNewPiece();
     }
